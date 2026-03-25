@@ -156,7 +156,6 @@ static VALUE grpc_rb_xds_channel_credentials_init(VALUE self,
 // Composite channel credentials are now handled in Ruby.
 // This C method is no longer used.
 
-
 void Init_grpc_xds_channel_credentials() {
   grpc_rb_cXdsChannelCredentials = rb_define_class_under(
       grpc_rb_mGrpcCore, "XdsChannelCredentials", rb_cObject);
