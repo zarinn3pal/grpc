@@ -41,6 +41,9 @@ module GRPC
         channel_args['grpc.primary_user_agent'] += ' '
       end
       channel_args['grpc.primary_user_agent'] += "grpc-ruby/#{VERSION}"
+      if creds.is_a?(Core::CompositeChannelCredentials)
+        creds = creds.channel_credentials
+      end
       unless creds.is_a?(Core::ChannelCredentials) ||
              creds.is_a?(Core::XdsChannelCredentials) ||
              creds.is_a?(Symbol)
@@ -101,7 +104,17 @@ module GRPC
                    propagate_mask: nil,
                    channel_args: {},
                    interceptors: [])
-      @ch = ClientStub.setup_channel(channel_override, host, creds,
+      if creds.is_a?(Core::CompositeChannelCredentials)
+        @call_creds = creds.call_credentials
+        @channel_creds = creds.channel_credentials
+      elsif creds.is_a?(Core::CallCredentials)
+        @call_creds = creds
+        @channel_creds = :this_channel_is_insecure
+      else
+        @call_creds = nil
+        @channel_creds = creds
+      end
+      @ch = ClientStub.setup_channel(channel_override, host, @channel_creds,
                                      channel_args.dup)
       alt_host = channel_args[Core::Channel::SSL_TARGET]
       @host = alt_host.nil? ? host : alt_host
@@ -171,13 +184,19 @@ module GRPC
         op = c.operation
         op.define_singleton_method(:execute) do
           interception_context.intercept!(:request_response, intercept_args) do
-            c.request_response(req, metadata: metadata)
+            resolved_metadata = intercept_args[:metadata]
+            resolved_creds = Core::CallCredentialsHelper.resolve(@call_creds, credentials)
+            Core::CallCredentialsHelper.apply(resolved_creds, resolved_metadata, @host, @channel_creds)
+            c.request_response(req, metadata: resolved_metadata)
           end
         end
         op
       else
         interception_context.intercept!(:request_response, intercept_args) do
-          c.request_response(req, metadata: metadata)
+          resolved_metadata = intercept_args[:metadata]
+          resolved_creds = Core::CallCredentialsHelper.resolve(@call_creds, credentials)
+          Core::CallCredentialsHelper.apply(resolved_creds, resolved_metadata, @host, @channel_creds)
+          c.request_response(req, metadata: resolved_metadata)
         end
       end
     end
@@ -248,13 +267,19 @@ module GRPC
         op = c.operation
         op.define_singleton_method(:execute) do
           interception_context.intercept!(:client_streamer, intercept_args) do
-            c.client_streamer(requests)
+            resolved_metadata = intercept_args[:metadata]
+            resolved_creds = Core::CallCredentialsHelper.resolve(@call_creds, credentials)
+            Core::CallCredentialsHelper.apply(resolved_creds, resolved_metadata, @host, @channel_creds)
+            c.client_streamer(requests, metadata: resolved_metadata)
           end
         end
         op
       else
         interception_context.intercept!(:client_streamer, intercept_args) do
-          c.client_streamer(requests, metadata: metadata)
+          resolved_metadata = intercept_args[:metadata]
+          resolved_creds = Core::CallCredentialsHelper.resolve(@call_creds, credentials)
+          Core::CallCredentialsHelper.apply(resolved_creds, resolved_metadata, @host, @channel_creds)
+          c.client_streamer(requests, metadata: resolved_metadata)
         end
       end
     end
@@ -340,13 +365,19 @@ module GRPC
         op = c.operation
         op.define_singleton_method(:execute) do
           interception_context.intercept!(:server_streamer, intercept_args) do
-            c.server_streamer(req, &blk)
+            resolved_metadata = intercept_args[:metadata]
+            resolved_creds = Core::CallCredentialsHelper.resolve(@call_creds, credentials)
+            Core::CallCredentialsHelper.apply(resolved_creds, resolved_metadata, @host, @channel_creds)
+            c.server_streamer(req, metadata: resolved_metadata, &blk)
           end
         end
         op
       else
         interception_context.intercept!(:server_streamer, intercept_args) do
-          c.server_streamer(req, metadata: metadata, &blk)
+          resolved_metadata = intercept_args[:metadata]
+          resolved_creds = Core::CallCredentialsHelper.resolve(@call_creds, credentials)
+          Core::CallCredentialsHelper.apply(resolved_creds, resolved_metadata, @host, @channel_creds)
+          c.server_streamer(req, metadata: resolved_metadata, &blk)
         end
       end
     end
@@ -462,13 +493,19 @@ module GRPC
         op = c.operation
         op.define_singleton_method(:execute) do
           interception_context.intercept!(:bidi_streamer, intercept_args) do
-            c.bidi_streamer(requests, &blk)
+            resolved_metadata = intercept_args[:metadata]
+            resolved_creds = Core::CallCredentialsHelper.resolve(@call_creds, credentials)
+            Core::CallCredentialsHelper.apply(resolved_creds, resolved_metadata, @host, @channel_creds)
+            c.bidi_streamer(requests, metadata: resolved_metadata, &blk)
           end
         end
         op
       else
         interception_context.intercept!(:bidi_streamer, intercept_args) do
-          c.bidi_streamer(requests, metadata: metadata, &blk)
+          resolved_metadata = intercept_args[:metadata]
+          resolved_creds = Core::CallCredentialsHelper.resolve(@call_creds, credentials)
+          Core::CallCredentialsHelper.apply(resolved_creds, resolved_metadata, @host, @channel_creds)
+          c.bidi_streamer(requests, metadata: resolved_metadata, &blk)
         end
       end
     end
